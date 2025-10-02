@@ -69,7 +69,7 @@
     }
   }
 
-  // -------------------- PONG GAME --------------------
+  // -------------------- PONG --------------------
   function pongGame() {
     let paddleHeight = 80, paddleWidth = 10;
     let playerY = canvas.height / 2 - paddleHeight / 2;
@@ -82,9 +82,9 @@
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'white';
 
       // Paddles
-      ctx.fillStyle = 'white';
       ctx.fillRect(10, playerY, paddleWidth, paddleHeight);
       ctx.fillRect(canvas.width - 20, aiY, paddleWidth, paddleHeight);
 
@@ -93,12 +93,11 @@
       ctx.arc(ballX, ballY, ballSize / 2, 0, Math.PI * 2);
       ctx.fill();
 
-      // Center line
+      // Center Line
       ctx.setLineDash([5, 15]);
       ctx.beginPath();
       ctx.moveTo(canvas.width / 2, 0);
       ctx.lineTo(canvas.width / 2, canvas.height);
-      ctx.strokeStyle = 'white';
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -107,49 +106,42 @@
       ballX += ballSpeedX;
       ballY += ballSpeedY;
 
-      // Ball collision top/bottom
-      if(ballY <= ballSize/2 || ballY >= canvas.height - ballSize/2) {
-        ballSpeedY = -ballSpeedY;
-      }
+      // Collisions
+      if (ballY <= ballSize / 2 || ballY >= canvas.height - ballSize / 2) ballSpeedY *= -1;
 
-      // Ball collision player paddle
-      if(ballX - ballSize/2 <= 20 && ballY > playerY && ballY < playerY + paddleHeight) {
-        ballSpeedX = -ballSpeedX;
-      }
+      if (ballX - ballSize / 2 <= 20 && ballY > playerY && ballY < playerY + paddleHeight)
+        ballSpeedX *= -1;
 
-      // Ball collision AI paddle
-      if(ballX + ballSize/2 >= canvas.width - 20 && ballY > aiY && ballY < aiY + paddleHeight) {
-        ballSpeedX = -ballSpeedX;
-      }
+      if (ballX + ballSize / 2 >= canvas.width - 20 && ballY > aiY && ballY < aiY + paddleHeight)
+        ballSpeedX *= -1;
 
-      // AI Movement
-      if(aiY + paddleHeight/2 < ballY) aiY += 4;
-      else aiY -= 4;
-
-      aiY = Math.max(0, Math.min(canvas.height - paddleHeight, aiY));
-
-      // Reset ball
-      if(ballX < 0 || ballX > canvas.width) {
+      if (ballX < 0 || ballX > canvas.width) {
         ballX = canvas.width / 2;
         ballY = canvas.height / 2;
       }
+
+      // AI Movement
+      if (aiY + paddleHeight / 2 < ballY) aiY += 4;
+      else aiY -= 4;
+
+      aiY = Math.max(0, Math.min(canvas.height - paddleHeight, aiY));
     }
 
-    function loop() {
+    function gameLoop() {
       update();
       draw();
-      requestAnimationFrame(loop);
+      requestAnimationFrame(gameLoop);
     }
 
     window.onkeydown = function(e) {
-      if(e.key === 'ArrowUp') playerY = Math.max(playerY - 15, 0);
-      else if(e.key === 'ArrowDown') playerY = Math.min(playerY + 15, canvas.height - paddleHeight);
+      if (e.key === 'ArrowUp') playerY = Math.max(playerY - 15, 0);
+      else if (e.key === 'ArrowDown') playerY = Math.min(playerY + 15, canvas.height - paddleHeight);
     };
 
-    loop();
+    gameLoop();
   }
 
-  // -------------------- SNAKE GAME --------------------
+  // -------------------- SNAKE --------------------
   function SnakeGame(canvas) {
     const ctx = canvas.getContext("2d");
     const tileSize = 20;
@@ -250,9 +242,9 @@
     return { start, stop };
   }
 
-  // -------------------- SPACE INVADERS GAME --------------------
+  // -------------------- SPACE INVADERS --------------------
   function SpaceInvadersGame(canvas) {
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext('2d');
     let playerX = canvas.width / 2 - 20;
     let bullets = [];
     let enemies = [];
@@ -278,4 +270,57 @@
 
       // Draw bullets
       ctx.fillStyle = 'white';
-      bullets.forEach(b => ctx.fillRect(b.x, b.y
+      bullets.forEach(b => ctx.fillRect(b.x, b.y, 4, 10));
+
+      // Draw enemies
+      ctx.fillStyle = 'lime';
+      enemies.forEach(e => {
+        if (e.alive) ctx.fillRect(e.x, e.y, 30, 20);
+      });
+    }
+
+    function update() {
+      bullets = bullets.filter(b => b.y > 0);
+      bullets.forEach(b => b.y -= 5);
+
+      bullets.forEach(b => {
+        enemies.forEach(e => {
+          if (e.alive && b.x >= e.x && b.x <= e.x + 30 && b.y >= e.y && b.y <= e.y + 20) {
+            e.alive = false;
+            b.y = -10;
+          }
+        });
+      });
+    }
+
+    function gameLoop() {
+      if (!running) return;
+      update();
+      draw();
+      animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    function start() {
+      init();
+      running = true;
+      animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    function stop() {
+      running = false;
+      cancelAnimationFrame(animationFrameId);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (!running) return;
+      if (e.key === 'ArrowLeft') playerX = Math.max(0, playerX - 20);
+      if (e.key === 'ArrowRight') playerX = Math.min(canvas.width - 40, playerX + 20);
+      if (e.key === ' ') bullets.push({ x: playerX + 18, y: canvas.height - 30 });
+    });
+
+    return { start, stop };
+  }
+</script>
+
+</body>
+</html>
