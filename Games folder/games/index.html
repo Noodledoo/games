@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Game Hub</title>
+<style>
+  body { background: #222; color: #fff; font-family: Arial, sans-serif; text-align: center; margin: 0; }
+  #menu { margin-top: 50px; }
+  button { padding: 15px 30px; margin: 10px; font-size: 20px; cursor: pointer; }
+  #gameCanvas { background: black; display: none; margin: 20px auto; border: 2px solid white; }
+</style>
+</head>
+<body>
+
+<h1>Game Hub</h1>
+
+<div id="menu">
+  <button onclick="startGame('pong')">Play Pong</button>
+  <button onclick="startGame('snake')">Play Snake</button>
+  <button onclick="startGame('space')">Play Space Invaders</button>
+</div>
+
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  function showMenu() {
+    canvas.style.display = 'none';
+    document.getElementById('menu').style.display = 'block';
+  }
+
+  function startGame(game) {
+    document.getElementById('menu').style.display = 'none';
+    canvas.style.display = 'block';
+
+    if(game === 'pong') pongGame();
+    else if(game === 'snake') snakeGame();
+    else if(game === 'space') spaceInvadersGame();
+  }
+
+  // ---- Simple Pong Game ----
+  function pongGame() {
+    let paddleHeight = 80, paddleWidth = 10;
+    let playerY = canvas.height / 2 - paddleHeight / 2;
+    let aiY = playerY;
+    let ballSize = 15;
+    let ballX = canvas.width / 2;
+    let ballY = canvas.height / 2;
+    let ballSpeedX = 5;
+    let ballSpeedY = 3;
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Paddles
+      ctx.fillStyle = 'white';
+      ctx.fillRect(10, playerY, paddleWidth, paddleHeight);
+      ctx.fillRect(canvas.width - 20, aiY, paddleWidth, paddleHeight);
+
+      // Ball
+      ctx.beginPath();
+      ctx.arc(ballX, ballY, ballSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Center line
+      ctx.setLineDash([5, 15]);
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, 0);
+      ctx.lineTo(canvas.width / 2, canvas.height);
+      ctx.strokeStyle = 'white';
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function update() {
+      ballX += ballSpeedX;
+      ballY += ballSpeedY;
+
+      // Ball collision top/bottom
+      if(ballY <= ballSize/2 || ballY >= canvas.height - ballSize/2) {
+        ballSpeedY = -ballSpeedY;
+      }
+
+      // Ball collision player paddle
+      if(ballX - ballSize/2 <= 20 && ballY > playerY && ballY < playerY + paddleHeight) {
+        ballSpeedX = -ballSpeedX;
+      }
+
+      // Ball collision AI paddle
+      if(ballX + ballSize/2 >= canvas.width - 20 && ballY > aiY && ballY < aiY + paddleHeight) {
+        ballSpeedX = -ballSpeedX;
+      }
+
+      // AI Movement
+      if(aiY + paddleHeight/2 < ballY) {
+        aiY += 4;
+      } else {
+        aiY -= 4;
+      }
+      aiY = Math.max(0, Math.min(canvas.height - paddleHeight, aiY));
+
+      // Reset ball if it goes off screen
+      if(ballX < 0 || ballX > canvas.width) {
+        ballX = canvas.width / 2;
+        ballY = canvas.height / 2;
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Player controls
+    window.onkeydown = function(e) {
+      if(e.key === 'ArrowUp') {
+        playerY = Math.max(playerY - 15, 0);
+      } else if(e.key === 'ArrowDown') {
+        playerY = Math.min(playerY + 15, canvas.height - paddleHeight);
+      }
+    };
+
+    gameLoop();
+  }
+
+  // ---- Placeholder Snake Game ----
+  function snakeGame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.font = '30px Arial';
+    ctx.fillText('Snake game coming soon!', 100, canvas.height/2);
+  }
+
+  // ---- Placeholder Space Invaders Game ----
+  function spaceInvadersGame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.font = '30px Arial';
+    ctx.fillText('Space Invaders game coming soon!', 50, canvas.height/2);
+  }
+
+</script>
+
+</body>
+</html>
