@@ -30,6 +30,31 @@
       margin: 20px auto;
       border: 2px solid white;
     }
+
+    #controls {
+      display: none;
+      margin: 20px;
+    }
+
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 10;
+    }
+
+    #overlay h2 {
+      font-size: 40px;
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
@@ -37,40 +62,82 @@
 <h1>Game Hub</h1>
 
 <div id="menu">
-  <button onclick="startGame('pong')">Play Pong</button>
-  <button onclick="startGame('snake')">Play Snake</button>
-  <button onclick="startGame('space')">Play Space Invaders</button>
+  <button onclick="selectGame('pong')">Play Pong</button>
+  <button onclick="selectGame('snake')">Play Snake</button>
+  <button onclick="selectGame('space')">Play Space Invaders</button>
+</div>
+
+<div id="controls">
+  <button onclick="startCurrentGame()">Start</button>
+  <button onclick="goBack()">Back</button>
 </div>
 
 <canvas id="gameCanvas" width="600" height="400"></canvas>
 
+<div id="overlay">
+  <h2 id="gameOverText">Game Over</h2>
+  <p id="finalScore"></p>
+  <button onclick="restartGame()">Restart</button>
+  <button onclick="exitToMenu()">Return to Menu</button>
+</div>
+
 <script>
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('overlay');
+  const finalScoreText = document.getElementById('finalScore');
   let currentGame = null;
+  let currentGameName = null;
 
-  function startGame(game) {
+  function selectGame(game) {
     document.getElementById('menu').style.display = 'none';
+    document.getElementById('controls').style.display = 'block';
     canvas.style.display = 'block';
+    currentGameName = game;
+  }
 
-    if (currentGame && currentGame.stop) {
-      currentGame.stop();
-    }
+  function startCurrentGame() {
+    if (currentGame && currentGame.stop) currentGame.stop();
+    overlay.style.display = 'none';
 
-    if (game === 'pong') {
-      pongGame();
-      currentGame = null;
-    } else if (game === 'snake') {
+    if (currentGameName === 'pong') {
+      currentGame = PongGame(canvas);
+      currentGame.start();
+    } else if (currentGameName === 'snake') {
       currentGame = SnakeGame(canvas);
       currentGame.start();
-    } else if (game === 'space') {
+    } else if (currentGameName === 'space') {
       currentGame = SpaceInvadersGame(canvas);
       currentGame.start();
     }
   }
 
+  function goBack() {
+    if (currentGame && currentGame.stop) currentGame.stop();
+    canvas.style.display = 'none';
+    document.getElementById('controls').style.display = 'none';
+    document.getElementById('menu').style.display = 'block';
+    overlay.style.display = 'none';
+  }
+
+  function showGameOver(score) {
+    overlay.style.display = 'flex';
+    finalScoreText.innerText = "Final Score: " + score;
+  }
+
+  function restartGame() {
+    overlay.style.display = 'none';
+    startCurrentGame();
+  }
+
+  function exitToMenu() {
+    overlay.style.display = 'none';
+    goBack();
+  }
+
   // -------------------- PONG --------------------
-  function pongGame() {
+  function PongGame(canvas) {
+    const ctx = canvas.getContext("2d");
     let paddleHeight = 80, paddleWidth = 10;
     let playerY = canvas.height / 2 - paddleHeight / 2;
     let aiY = playerY;
@@ -79,6 +146,9 @@
     let ballY = canvas.height / 2;
     let ballSpeedX = 5;
     let ballSpeedY = 3;
+    let playerScore = 0, aiScore = 0;
+    let running = false;
+    let animationFrameId;
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -97,16 +167,20 @@
       ctx.setLineDash([5, 15]);
       ctx.beginPath();
       ctx.moveTo(canvas.width / 2, 0);
-      ctx.lineTo(canvas.width / 2, canvas.height);
+      ctx.lineTo(canvas.height, canvas.height);
       ctx.stroke();
       ctx.setLineDash([]);
+
+      // Scoreboard
+      ctx.font = "20px Arial";
+      ctx.fillText(playerScore, canvas.width / 4, 30);
+      ctx.fillText(aiScore, (canvas.width * 3) / 4, 30);
     }
 
     function update() {
       ballX += ballSpeedX;
       ballY += ballSpeedY;
 
-      // Collisions
       if (ballY <= ballSize / 2 || ballY >= canvas.height - ballSize / 2) ballSpeedY *= -1;
 
       if (ballX - ballSize / 2 <= 20 && ballY > playerY && ballY < playerY + paddleHeight)
@@ -115,22 +189,32 @@
       if (ballX + ballSize / 2 >= canvas.width - 20 && ballY > aiY && ballY < aiY + paddleHeight)
         ballSpeedX *= -1;
 
-      if (ballX < 0 || ballX > canvas.width) {
-        ballX = canvas.width / 2;
-        ballY = canvas.height / 2;
+      if (ballX < 0) {
+        aiScore++;
+        if (aiScore >= 5) { endGame(); return; }
+        resetBall();
+      } else if (ballX > canvas.width) {
+        playerScore++;
+        if (playerScore >= 5) { endGame(); return; }
+        resetBall();
       }
 
-      // AI Movement
       if (aiY + paddleHeight / 2 < ballY) aiY += 4;
       else aiY -= 4;
-
       aiY = Math.max(0, Math.min(canvas.height - paddleHeight, aiY));
     }
 
+    function resetBall() {
+      ballX = canvas.width / 2;
+      ballY = canvas.height / 2;
+      ballSpeedX *= -1;
+    }
+
     function gameLoop() {
+      if (!running) return;
       update();
       draw();
-      requestAnimationFrame(gameLoop);
+      animationFrameId = requestAnimationFrame(gameLoop);
     }
 
     window.onkeydown = function(e) {
@@ -138,7 +222,22 @@
       else if (e.key === 'ArrowDown') playerY = Math.min(playerY + 15, canvas.height - paddleHeight);
     };
 
-    gameLoop();
+    function endGame() {
+      stop();
+      showGameOver(playerScore);
+    }
+
+    function start() {
+      running = true;
+      gameLoop();
+    }
+
+    function stop() {
+      running = false;
+      cancelAnimationFrame(animationFrameId);
+    }
+
+    return { start, stop };
   }
 
   // -------------------- SNAKE --------------------
@@ -151,12 +250,15 @@
     let snake, food, velocity, animationFrameId;
     let running = false;
     let directionQueue = [];
+    let score = 0;
+    let frameCounter = 0;
 
     function init() {
       snake = [{ x: 10, y: 10 }];
       velocity = { x: 1, y: 0 };
       directionQueue = [];
       placeFood();
+      score = 0;
     }
 
     function placeFood() {
@@ -177,9 +279,16 @@
 
       ctx.fillStyle = "red";
       ctx.fillRect(food.x * tileSize, food.y * tileSize, tileSize, tileSize);
+
+      ctx.fillStyle = "white";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 10, 20);
     }
 
     function update() {
+      frameCounter++;
+      if (frameCounter % 8 !== 0) return; // slower speed
+
       if (directionQueue.length) {
         const nextDir = directionQueue.shift();
         if (nextDir.x !== -velocity.x && nextDir.y !== -velocity.y) {
@@ -194,16 +303,14 @@
         head.y < 0 || head.y >= tileCountY ||
         snake.some(part => part.x === head.x && part.y === head.y)
       ) {
-        stop();
-        alert("Game Over!");
-        init();
-        start();
+        endGame();
         return;
       }
 
       snake.unshift(head);
 
       if (head.x === food.x && head.y === food.y) {
+        score++;
         placeFood();
       } else {
         snake.pop();
@@ -217,8 +324,12 @@
       animationFrameId = requestAnimationFrame(gameLoop);
     }
 
+    function endGame() {
+      stop();
+      showGameOver(score);
+    }
+
     function start() {
-      if (running) return;
       init();
       running = true;
       animationFrameId = requestAnimationFrame(gameLoop);
@@ -248,8 +359,11 @@
     let playerX = canvas.width / 2 - 20;
     let bullets = [];
     let enemies = [];
+    let enemyDirection = 1;
+    let enemySpeed = 1;
     let animationFrameId;
     let running = false;
+    let score = 0;
 
     function init() {
       bullets = [];
@@ -259,6 +373,7 @@
           enemies.push({ x: 60 + x * 50, y: 30 + y * 40, alive: true });
         }
       }
+      score = 0;
     }
 
     function draw() {
@@ -277,6 +392,11 @@
       enemies.forEach(e => {
         if (e.alive) ctx.fillRect(e.x, e.y, 30, 20);
       });
+
+      // Scoreboard
+      ctx.fillStyle = "white";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 10, 20);
     }
 
     function update() {
@@ -288,9 +408,28 @@
           if (e.alive && b.x >= e.x && b.x <= e.x + 30 && b.y >= e.y && b.y <= e.y + 20) {
             e.alive = false;
             b.y = -10;
+            score += 10;
           }
         });
       });
+
+      let moveDown = false;
+      enemies.forEach(e => {
+        if (e.alive) {
+          e.x += enemySpeed * enemyDirection;
+          if (e.x <= 10 || e.x >= canvas.width - 40) moveDown = true;
+        }
+      });
+
+      if (moveDown) {
+        enemyDirection *= -1;
+        enemies.forEach(e => e.y += 20);
+      }
+
+      // Game Over if enemies reach bottom
+      if (enemies.some(e => e.alive && e.y >= canvas.height - 40)) {
+        endGame();
+      }
     }
 
     function gameLoop() {
@@ -298,6 +437,11 @@
       update();
       draw();
       animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    function endGame() {
+      stop();
+      showGameOver(score);
     }
 
     function start() {
