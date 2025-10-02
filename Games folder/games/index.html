@@ -11,31 +11,28 @@
       font-family: Arial, sans-serif;
       text-align: center;
       margin: 0;
+      overflow: hidden;
     }
-
     #menu {
       margin-top: 50px;
     }
-
     button {
       padding: 15px 30px;
       margin: 10px;
       font-size: 20px;
       cursor: pointer;
     }
-
     #gameCanvas {
       background: black;
       display: none;
       margin: 20px auto;
       border: 2px solid white;
+      touch-action: none;
     }
-
     #controls {
       display: none;
       margin: 20px;
     }
-
     #overlay {
       position: absolute;
       top: 0;
@@ -50,10 +47,26 @@
       flex-direction: column;
       z-index: 10;
     }
-
     #overlay h2 {
       font-size: 40px;
       margin-bottom: 20px;
+    }
+    #difficultySelect {
+      margin-top: 20px;
+    }
+    .touch-controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      z-index: 20;
+    }
+    .touch-controls button {
+      padding: 20px;
+      margin: 5px;
+      font-size: 24px;
+      opacity: 0.7;
     }
   </style>
 </head>
@@ -65,6 +78,14 @@
   <button onclick="selectGame('pong')">Play Pong</button>
   <button onclick="selectGame('snake')">Play Snake</button>
   <button onclick="selectGame('space')">Play Space Invaders</button>
+  <div id="difficultySelect">
+    Difficulty:
+    <select id="difficulty">
+      <option value="easy">Easy</option>
+      <option value="medium" selected>Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+  </div>
 </div>
 
 <div id="controls">
@@ -81,11 +102,26 @@
   <button onclick="exitToMenu()">Return to Menu</button>
 </div>
 
+<div class="touch-controls" id="touchControls">
+  <button id="btnLeft">◀</button>
+  <button id="btnRight">▶</button>
+  <button id="btnUp">▲</button>
+  <button id="btnDown">▼</button>
+  <button id="btnShoot">Fire</button>
+</div>
+
 <script>
   const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
   const overlay = document.getElementById('overlay');
   const finalScoreText = document.getElementById('finalScore');
+  const difficultySelect = document.getElementById('difficulty');
+  const touchControls = document.getElementById('touchControls');
+  const btnLeft = document.getElementById('btnLeft');
+  const btnRight = document.getElementById('btnRight');
+  const btnUp = document.getElementById('btnUp');
+  const btnDown = document.getElementById('btnDown');
+  const btnShoot = document.getElementById('btnShoot');
+
   let currentGame = null;
   let currentGameName = null;
 
@@ -94,20 +130,27 @@
     document.getElementById('controls').style.display = 'block';
     canvas.style.display = 'block';
     currentGameName = game;
+
+    if ('ontouchstart' in window) {
+      touchControls.style.display = 'block';
+    } else {
+      touchControls.style.display = 'none';
+    }
   }
 
   function startCurrentGame() {
     if (currentGame && currentGame.stop) currentGame.stop();
     overlay.style.display = 'none';
 
+    const difficulty = difficultySelect.value;
     if (currentGameName === 'pong') {
-      currentGame = PongGame(canvas);
+      currentGame = PongGame(canvas, difficulty);
       currentGame.start();
     } else if (currentGameName === 'snake') {
-      currentGame = SnakeGame(canvas);
+      currentGame = SnakeGame(canvas, difficulty);
       currentGame.start();
     } else if (currentGameName === 'space') {
-      currentGame = SpaceInvadersGame(canvas);
+      currentGame = SpaceInvadersGame(canvas, difficulty);
       currentGame.start();
     }
   }
@@ -118,6 +161,7 @@
     document.getElementById('controls').style.display = 'none';
     document.getElementById('menu').style.display = 'block';
     overlay.style.display = 'none';
+    touchControls.style.display = 'none';
   }
 
   function showGameOver(score) {
@@ -136,7 +180,7 @@
   }
 
   // -------------------- PONG --------------------
-  function PongGame(canvas) {
+  function PongGame(canvas, difficulty) {
     const ctx = canvas.getContext("2d");
     let paddleHeight = 80, paddleWidth = 10;
     let playerY = canvas.height / 2 - paddleHeight / 2;
@@ -149,37 +193,50 @@
     let playerScore = 0, aiScore = 0;
     let running = false;
     let animationFrameId;
+    let keys = {};
+
+    let aiSpeed, paddleSpeed;
+    if (difficulty === 'easy') { aiSpeed = 3; paddleSpeed = 5; }
+    else if (difficulty === 'medium') { aiSpeed = 4; paddleSpeed = 6; }
+    else { aiSpeed = 5; paddleSpeed = 8; }
+
+    window.addEventListener("keydown", e => keys[e.key] = true);
+    window.addEventListener("keyup", e => keys[e.key] = false);
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = 'white';
 
-      // Paddles
       ctx.fillRect(10, playerY, paddleWidth, paddleHeight);
       ctx.fillRect(canvas.width - 20, aiY, paddleWidth, paddleHeight);
 
-      // Ball
       ctx.beginPath();
       ctx.arc(ballX, ballY, ballSize / 2, 0, Math.PI * 2);
       ctx.fill();
 
-      // Scoreboard
       ctx.font = "20px Arial";
       ctx.fillText(playerScore, canvas.width / 4, 30);
       ctx.fillText(aiScore, (canvas.width * 3) / 4, 30);
     }
 
     function update() {
+      if (keys["ArrowUp"]) playerY = Math.max(playerY - paddleSpeed, 0);
+      if (keys["ArrowDown"]) playerY = Math.min(playerY + paddleSpeed, canvas.height - paddleHeight);
+
       ballX += ballSpeedX;
       ballY += ballSpeedY;
 
-      if (ballY <= ballSize / 2 || ballY >= canvas.height - ballSize / 2) ballSpeedY *= -1;
+      if (ballY <= ballSize / 2 || ballY >= canvas.height - ballSize / 2) {
+        ballSpeedY *= -1;
+      }
 
-      if (ballX - ballSize / 2 <= 20 && ballY > playerY && ballY < playerY + paddleHeight)
+      if (ballX - ballSize / 2 <= 20 && ballY > playerY && ballY < playerY + paddleHeight) {
         ballSpeedX *= -1;
+      }
 
-      if (ballX + ballSize / 2 >= canvas.width - 20 && ballY > aiY && ballY < aiY + paddleHeight)
+      if (ballX + ballSize / 2 >= canvas.width - 20 && ballY > aiY && ballY < aiY + paddleHeight) {
         ballSpeedX *= -1;
+      }
 
       if (ballX < 0) {
         aiScore++;
@@ -191,8 +248,8 @@
         resetBall();
       }
 
-      if (aiY + paddleHeight / 2 < ballY) aiY += 4;
-      else aiY -= 4;
+      if (aiY + paddleHeight / 2 < ballY) aiY += aiSpeed;
+      else aiY -= aiSpeed;
       aiY = Math.max(0, Math.min(canvas.height - paddleHeight, aiY));
     }
 
@@ -209,11 +266,6 @@
       animationFrameId = requestAnimationFrame(gameLoop);
     }
 
-    window.onkeydown = function(e) {
-      if (e.key === 'ArrowUp') playerY = Math.max(playerY - 15, 0);
-      else if (e.key === 'ArrowDown') playerY = Math.min(playerY + 15, canvas.height - paddleHeight);
-    };
-
     function endGame() {
       stop();
       showGameOver(playerScore);
@@ -229,11 +281,17 @@
       cancelAnimationFrame(animationFrameId);
     }
 
+    // Touch for Pong (Up / Down)
+    btnUp.onclick = () => keys["ArrowUp"] = true;
+    btnUp.onmouseup = btnUp.onmouseleave = () => keys["ArrowUp"] = false;
+    btnDown.onclick = () => keys["ArrowDown"] = true;
+    btnDown.onmouseup = btnDown.onmouseleave = () => keys["ArrowDown"] = false;
+
     return { start, stop };
   }
 
   // -------------------- SNAKE --------------------
-  function SnakeGame(canvas) {
+  function SnakeGame(canvas, difficulty) {
     const ctx = canvas.getContext("2d");
     const tileSize = 20;
     const tileCountX = canvas.width / tileSize;
@@ -244,6 +302,11 @@
     let directionQueue = [];
     let score = 0;
     let frameCounter = 0;
+
+    let speedModifier;
+    if (difficulty === 'easy') speedModifier = 12;
+    else if (difficulty === 'medium') speedModifier = 8;
+    else speedModifier = 5;
 
     function init() {
       snake = [{ x: 10, y: 10 }];
@@ -279,11 +342,11 @@
 
     function update() {
       frameCounter++;
-      if (frameCounter % 8 !== 0) return; // slower speed
+      if (frameCounter % speedModifier !== 0) return;
 
       if (directionQueue.length) {
         const nextDir = directionQueue.shift();
-        if (nextDir.x !== -velocity.x && nextDir.y !== -velocity.y) {
+        if (nextDir.x !== -velocity.x || nextDir.y !== -velocity.y) {
           velocity = nextDir;
         }
       }
@@ -324,7 +387,7 @@
     function start() {
       init();
       running = true;
-      animationFrameId = requestAnimationFrame(gameLoop);
+      gameLoop();
     }
 
     function stop() {
@@ -342,50 +405,98 @@
       }
     });
 
+    btnUp.onclick = () => directionQueue.push({ x: 0, y: -1 });
+    btnLeft.onclick = () => directionQueue.push({ x: -1, y: 0 });
+    btnRight.onclick = () => directionQueue.push({ x: 1, y: 0 });
+    btnDown.onclick = () => directionQueue.push({ x: 0, y: 1 });
+
     return { start, stop };
   }
 
   // -------------------- SPACE INVADERS --------------------
-  function SpaceInvadersGame(canvas) {
+  function SpaceInvadersGame(canvas, difficulty) {
     const ctx = canvas.getContext('2d');
     let playerX = canvas.width / 2 - 20;
     let bullets = [];
     let enemies = [];
+    let blocks = [];
     let enemyDirection = 1;
     let enemySpeed = 1;
     let animationFrameId;
     let running = false;
     let score = 0;
 
-    function init() {
-      bullets = [];
-      enemies = [];
-      for (let y = 0; y < 3; y++) {
-        for (let x = 0; x < 8; x++) {
-          enemies.push({ x: 60 + x * 50, y: 30 + y * 40, alive: true });
+    let speedMultiplier;
+    if (difficulty === 'easy') speedMultiplier = 0.8;
+    else if (difficulty === 'medium') speedMultiplier = 1;
+    else speedMultiplier = 1.2;
+
+    function createBlocks() {
+      blocks = [];
+      for (let i = 0; i < 3; i++) {
+        let xStart = 100 + i * 150;
+        for (let y = 0; y < 3; y++) {
+          for (let x = 0; x < 6; x++) {
+            blocks.push({ x: xStart + x * 5, y: canvas.height - 80 + y * 5, hp: 3 });
+          }
         }
       }
+    }
+
+    function createNextWave() {
+      enemies = [];
+      for (let y = 0; y < 4; y++) {
+        for (let x = 0; x < 9; x++) {
+          enemies.push({ x: 50 + x * 50, y: 30 + y * 40, alive: true });
+        }
+      }
+      createBlocks();
+    }
+
+    function init() {
+      bullets = [];
       score = 0;
+      enemySpeed = 1 * speedMultiplier;
+      createNextWave();
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw player
+      // Player
       ctx.fillStyle = 'cyan';
       ctx.fillRect(playerX, canvas.height - 20, 40, 10);
 
-      // Draw bullets
+      // Bullets
       ctx.fillStyle = 'white';
       bullets.forEach(b => ctx.fillRect(b.x, b.y, 4, 10));
 
-      // Draw enemies
-      ctx.fillStyle = 'lime';
+      // Enemies
       enemies.forEach(e => {
-        if (e.alive) ctx.fillRect(e.x, e.y, 30, 20);
+        if (e.alive) {
+          ctx.fillStyle = 'lime';
+          ctx.fillRect(e.x, e.y, 30, 20);
+
+          // Angry face
+          ctx.fillStyle = 'black';
+          ctx.beginPath(); ctx.arc(e.x + 8, e.y + 6, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(e.x + 22, e.y + 6, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = 'black';
+          ctx.beginPath(); ctx.moveTo(e.x + 5, e.y + 3); ctx.lineTo(e.x + 11, e.y + 1); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(e.x + 25, e.y + 3); ctx.lineTo(e.x + 19, e.y + 1); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(e.x + 10, e.y + 16); ctx.lineTo(e.x + 20, e.y + 16); ctx.stroke();
+        }
       });
 
-      // Scoreboard
+      // Blocks
+      blocks.forEach(b => {
+        if (b.hp > 0) {
+          ctx.fillStyle = ['#555', '#999', '#ccc'][b.hp - 1];
+          ctx.fillRect(b.x, b.y, 5, 5);
+        }
+      });
+
+      // Score
       ctx.fillStyle = "white";
       ctx.font = "20px Arial";
       ctx.fillText("Score: " + score, 10, 20);
@@ -403,6 +514,16 @@
             score += 10;
           }
         });
+        blocks.forEach(block => {
+          if (
+            block.hp > 0 &&
+            b.x >= block.x && b.x <= block.x + 5 &&
+            b.y >= block.y && b.y <= block.y + 5
+          ) {
+            block.hp--;
+            b.y = -10;
+          }
+        });
       });
 
       let moveDown = false;
@@ -418,9 +539,14 @@
         enemies.forEach(e => e.y += 20);
       }
 
-      // Game Over if enemies reach bottom
       if (enemies.some(e => e.alive && e.y >= canvas.height - 40)) {
         endGame();
+        return;
+      }
+
+      if (enemies.every(e => !e.alive)) {
+        enemySpeed = enemySpeed * 1.2;
+        createNextWave();
       }
     }
 
@@ -439,7 +565,7 @@
     function start() {
       init();
       running = true;
-      animationFrameId = requestAnimationFrame(gameLoop);
+      gameLoop();
     }
 
     function stop() {
@@ -451,8 +577,16 @@
       if (!running) return;
       if (e.key === 'ArrowLeft') playerX = Math.max(0, playerX - 20);
       if (e.key === 'ArrowRight') playerX = Math.min(canvas.width - 40, playerX + 20);
-      if (e.key === ' ') bullets.push({ x: playerX + 18, y: canvas.height - 30 });
+      if (e.key === ' ') {
+        bullets.push({ x: playerX + 18, y: canvas.height - 30 });
+      }
     });
+
+    btnLeft.onclick = () => playerX = Math.max(0, playerX - 20);
+    btnRight.onclick = () => playerX = Math.min(canvas.width - 40, playerX + 20);
+    btnShoot.onclick = () => {
+      bullets.push({ x: playerX + 18, y: canvas.height - 30 });
+    };
 
     return { start, stop };
   }
