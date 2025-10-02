@@ -128,12 +128,117 @@
   }
 
   // ---- Placeholder Snake Game ----
-  function snakeGame() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'white';
-    ctx.font = '30px Arial';
-    ctx.fillText('Snake game coming soon!', 100, canvas.height/2);
+function SnakeGame(canvas) {
+  const ctx = canvas.getContext("2d");
+  const tileSize = 20;
+  const tileCountX = canvas.width / tileSize;
+  const tileCountY = canvas.height / tileSize;
+
+  let snake;
+  let food;
+  let velocity;
+  let animationFrameId;
+  let running = false;
+  let directionQueue = [];
+
+  function init() {
+    snake = [{ x: 10, y: 10 }];
+    velocity = { x: 1, y: 0 };
+    directionQueue = [];
+    placeFood();
   }
+
+  function placeFood() {
+    food = {
+      x: Math.floor(Math.random() * tileCountX),
+      y: Math.floor(Math.random() * tileCountY),
+    };
+  }
+
+  function draw() {
+    // Clear canvas
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw snake
+    ctx.fillStyle = "lime";
+    for (let part of snake) {
+      ctx.fillRect(part.x * tileSize, part.y * tileSize, tileSize, tileSize);
+    }
+
+    // Draw food
+    ctx.fillStyle = "red";
+    ctx.fillRect(food.x * tileSize, food.y * tileSize, tileSize, tileSize);
+  }
+
+  function update() {
+    // Handle direction changes
+    if (directionQueue.length) {
+      const nextDir = directionQueue.shift();
+      // Prevent reversing directly
+      if (nextDir.x !== -velocity.x && nextDir.y !== -velocity.y) {
+        velocity = nextDir;
+      }
+    }
+
+    const head = { x: snake[0].x + velocity.x, y: snake[0].y + velocity.y };
+
+    // Check for collisions
+    if (
+      head.x < 0 || head.x >= tileCountX ||
+      head.y < 0 || head.y >= tileCountY ||
+      snake.some(part => part.x === head.x && part.y === head.y)
+    ) {
+      stop(); // Game over
+      alert("Game Over!");
+      init(); // Restart
+      start();
+      return;
+    }
+
+    snake.unshift(head);
+
+    // Eat food
+    if (head.x === food.x && head.y === food.y) {
+      placeFood();
+    } else {
+      snake.pop();
+    }
+  }
+
+  function gameLoop() {
+    if (!running) return;
+    update();
+    draw();
+    animationFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  function start() {
+    if (running) return;
+    init();
+    running = true;
+    animationFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  function stop() {
+    running = false;
+    cancelAnimationFrame(animationFrameId);
+  }
+
+  // Keyboard controls
+  window.addEventListener("keydown", (e) => {
+    if (!running) return;
+    switch (e.key) {
+      case "ArrowUp": directionQueue.push({ x: 0, y: -1 }); break;
+      case "ArrowDown": directionQueue.push({ x: 0, y: 1 }); break;
+      case "ArrowLeft": directionQueue.push({ x: -1, y: 0 }); break;
+      case "ArrowRight": directionQueue.push({ x: 1, y: 0 }); break;
+    }
+  });
+
+  return { start, stop };
+}
+
 
   // ---- Placeholder Space Invaders Game ----
   function spaceInvadersGame() {
